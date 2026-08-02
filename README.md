@@ -1,100 +1,52 @@
-# CSPS (Civil Scam Prevention Software)
+CSPS (Civil Scam Prevention Software)
+=====================================
 
-Checks a suspicious government/permit notice against the specific fraud
-pattern using methods stated by the FBI
+CSPS is a forensic-grade, multi-vector impersonation detection engine. This tool moves beyond generic spam filters by analyzing the specific, documented signatures of active fraud patterns and generating a probabilistic confidence score alongside how to deal with them, it’s mainly built for older people as they are more tech illiterate and are targets to scams I made it so it’s easy to understand.
 
-## The problem
+Overview
+--------
+Government and corporate impersonation scams cost victims hundreds of millions annually. Modern attackers utilize real public data paired with urgent, non-standard payment demands. Generic spam checkers often miss these because the text appears highly localized and contextually accurate. CSPS acts as an automated digital forensics and incident response (DFIR) tool to combat these sophisticated attacks.
 
-Government impersonation scams basically doubled between 2024 and 2025,
-with about $800 million lost. The FBI issued a specific alert this year
-about scammers impersonating city and county planning and zoning
-officials, sending fake permit fee invoices. What makes these convincing
-is that they use real details, actual property addresses, real case
-numbers, and the true names of real officials, pulled from public permit
-portals. The emails come from domains that look real and legit at a glance
-but aren’t official government domains, and they push for payment
-through wire transfer, crypto, or peer to peer apps and gift cards none of which real
-government offices accept.
+Core Detection Layers
+---------------------
+* Domain & Cryptographic Analysis: Evaluates domain typosquatting, homoglyph attacks, recent RDAP registrations, and parses raw email headers for SPF, DKIM, and DMARC alignment failures.
+* Payment Vector Flagging: Identifies high-risk, non-reversible payment demands including cryptocurrency, wire transfers, peer-to-peer apps, and sudden ACH routing changes.
+* NLP Pressure Scoring: Leverages sentiment analysis and pattern matching to detect extreme urgency, threats of legal action, or manipulative phrasing.
+* Multi-Vector Context Routing: Dynamically identifies the attack context (e.g., Civic Permits, Tax Audit, Tech Support, M365 Security Alert) and applies specific plausibility cross-checks.
+* IOC Extraction: Automatically parses out Indicators of Compromise (Bitcoin/Ethereum wallets, malicious URLs, rogue contact emails) to generate actionable threat intel.
 
-Generic scam checker tools already exist, but they’re built for
-all-purpose message scanning. To my knowledge Nothing is built specifically around this
-exact, currently active pattern.
+Architecture
+------------
+The project is strictly decoupled into a backend forensic engine and a lightweight frontend dashboard to ensure evidence integrity.
 
-## The solution
+* The Backend (Forensic Engine): A Python-based FastAPI microservice. To maintain the chain of custody, every scan generates a SHA-256 cryptographic hash of the input text and logs the event securely to a local SQLite database (csps_audit.db).
+* The Frontend (Client Dashboard): A vanilla HTML/JS client interface communicating with the API via REST, providing a clean dashboard for real-time analysis without exposing the core database.
 
-This project checks a notice against four layers, based directly on
-what the FBI’s alert actually described, not generic scam heuristics.
+System Modules
+--------------
+api_server.py         - FastAPI application wrapper serving the forensic engine.
+scan_notice.py        - The core scoring logic tying all detection modules together.
+domain_analyzer.py    - Typosquatting, homoglyph detection, and RDAP registration checks.
+header_verifier.py    - Cryptographic signature validation (SPF/DKIM/DMARC).
+plausibility_check.py - Contextual routing for multi-vector scam detection.
+payment_flagger.py    - Regex flagging for high-risk payment/routing demands.
+pressure_scorer.py    - NLP sentiment analysis and urgency pattern matching.
+ioc_extractor.py      - Threat intelligence extraction for wallets and URLs.
+audit_log.py          - SQLite integration and SHA-256 hashing for immutable logging.
+index.html            - The interactive dashboard connecting to the API.
+requirements.txt      - Python dependencies required for the engine.
 
-**Domain analysis** checks the sender’s domain against known scam
-domains and looks for typosquatting tricks, like a digit swapped in for
-a letter to fake a legitimate-looking domain.
+Setup and Installation
+----------------------
+1. Enter the directory using cd
 
-**Payment method flagging** looks for wire transfer, crypto, gift card,
-or P2P app requests. Real permit offices don’t accept these, so this
-flag alone is a strong signal.
+2. Install Dependencies: 
+   pip3 install -r requirements.txt
 
-**Pressure language scoring** looks for the urgency and threat phrasing
-scammers use to stop someone from pausing to verify first, things like
-“immediately,” “avoid penalties,” or “failure to pay will result in.”
+3. run the server using python3 ai_server.py
 
-**Plausibility cross-check** is the layer built directly from the FBI’s
-actual description of this scam. Real-looking case numbers or addresses
-alone aren’t suspicious. Urgency alone isn’t either. But all three,
-specific details plus urgency plus an unusual payment method, together
-is the documented signature of this exact fraud pattern.
+4. Start the Software by opening index.html
 
-All four layers feed into a weighted score, Low, Medium, or High risk,
-along with a plain-language breakdown of exactly which signals fired
-and why, instead of a black box yes or no.
-
-## What’s in this repo
-
-|File                   |What it does                                                        |
-|-----------------------|--------------------------------------------------------------------|
-|`domain_analyzer.py`   |Checks sender domain for known scam patterns and typosquat tricks.  |
-|`payment_flagger.py`   |Flags requests for wire transfer, crypto, gift cards, or P2P apps.  |
-|`pressure_scorer.py`   |Flags urgency and threat language.                                  |
-|`plausibility_check.py`|Checks for the specific FBI-documented combo pattern.               |
-|`scan_notice.py`       |Runs all four layers and produces the final scored report.          |
-|`index.html`           |Web version of the same detection logic, for a live demo in browser.|
-|`requirements.txt`     |Dependencies (none needed, standard library only).                  |
-
-`index.html` is a direct port of the Python detection logic to
-JavaScript, not a separate or simplified tool. Same four layers, same
-weights, same patterns, verified to produce identical results to the
-Python version. The Python files are the original engine; the web
-version is a presentation layer built on top of it for a live,
-click-through demo.
-
-## Running it
-
-```bash
-python3 scan_notice.py
-```
-
-Runs a clean baseline notice and a notice built from the real
-FBI-documented pattern side by side, so you can see both a clean result
-and a flagged one in the same run. No internet connection or API key
-needed, everything runs locally on plain text pattern matching.
-
-To see the web version instead, open `index.html` directly in a
-browser, or visit the hosted version if this repo has GitHub Pages
-enabled.
-
-## Future plans
-
-The domain and phrase lists here are a small, hand-built starting set,
-not a comprehensive database. A real version would pull from an actual
-municipal domain registry and expand the pattern lists as new scam
-variations get documented, since scammers adjust their wording once a
-pattern becomes well known.
-
-The bigger point is the approach itself. Instead of trying to catch
-scams with a single generic rule, this checks for the specific,
-documented signature of an active fraud pattern, and shows the reasoning
-behind the flag instead of just a risk label. That same approach, tuned
-to the specifics of a real, currently active scam, could extend to other
-impersonation patterns the FBI or FTC document as they show up, not just
-this one.
-
-## Built for The RLC Hacks 2026
+Project Details
+---------------
+Built for The RLC Hacks 2026.
