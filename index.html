@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CSPS — Notice Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cousine&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #202634;
+    --navy: #22496f;
+    --blue: #4a7ab5;
+    --pale-blue: #eef4fc;
+    --line: #dbe3ee;
+    --page: #ffffff;
+    --ground: #eef2f8;
+
+    --safe: #1e8f5e;
+    --safe-bg: #eaf8f1;
+    --safe-line: #bfe6d3;
+
+    --caution: #b1740a;
+    --caution-bg: #fff5e4;
+    --caution-line: #f2d69b;
+
+    --danger: #c0392b;
+    --danger-bg: #fdecea;
+    --danger-line: #f3c1ba;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: linear-gradient(180deg, #eef2f8 0%, #f7f9fc 45%, #eef2f8 100%);
+    font-family: 'EB Garamond', Georgia, serif;
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px 80px;
+  }
+  .page {
+    background: var(--page);
+    width: 100%;
+    max-width: 720px;
+    border-radius: 20px;
+    box-shadow: 0 20px 50px -25px rgba(34, 73, 111, 0.35);
+    padding: 48px 44px 56px;
+  }
+  .letterhead { text-align: center; margin-bottom: 4px; }
+  .badge-mark {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--pale-blue); margin-bottom: 10px;
+  }
+  .wordmark { font-size: 34px; font-weight: 700; letter-spacing: 0.02em; color: var(--navy); margin: 0; }
+  .tagline { font-style: italic; font-size: 16px; color: #5b6478; margin: 6px 0 0; }
+  .rule.thin { height: 0; border-bottom: 1px solid var(--line); border-top: none; margin: 28px 0; }
+  .section-label { font-family: 'Cousine', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--blue); margin: 0 0 14px; }
+  label { display: block; font-size: 14.5px; letter-spacing: 0.02em; color: var(--navy); margin: 0 0 6px; font-weight: 600; }
+  input[type="text"], textarea {
+    width: 100%; font-family: 'Cousine', monospace; font-size: 14px; color: var(--ink);
+    background: #fbfcfe; border: 1.5px solid var(--line); border-radius: 10px;
+    padding: 12px 14px; margin-bottom: 20px; resize: vertical; transition: border-color 0.15s ease;
+  }
+  input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(74,122,181,0.15); }
+  textarea { min-height: 140px; line-height: 1.5; }
+  .examples { margin: -8px 0 24px; font-size: 13px; line-height: 2; }
+  .examples button {
+    font-family: 'EB Garamond', Georgia, serif; font-style: italic; background: var(--pale-blue);
+    border: none; color: var(--navy); cursor: pointer; padding: 5px 12px; border-radius: 20px;
+    font-size: 13.5px; margin: 0 6px 6px 0; transition: background 0.15s ease;
+  }
+  .examples button:hover { background: #dde9fa; }
+  .run-btn {
+    width: 100%; background: var(--navy); color: #fff; border: none; border-radius: 12px;
+    font-family: 'EB Garamond', Georgia, serif; font-size: 18px; font-weight: 600;
+    padding: 15px; cursor: pointer; transition: background 0.15s ease;
+  }
+  .run-btn:hover { background: #1a3a58; }
+  .run-btn:disabled { opacity: 0.7; cursor: default; }
+
+  #results { margin-top: 0; }
+  #results:empty { margin-top: 0; }
+
+  /* --- Verdict badge: fixed overlap bug by wrapping + centering properly,
+     and dropping the rotated "stamp" so nothing spills into content below --- */
+  .verdict-wrap { display: flex; justify-content: center; margin: 8px 0 20px; }
+  .badge {
+    display: flex; align-items: center; gap: 14px;
+    border: 1.5px solid; border-radius: 16px; padding: 16px 26px;
+    max-width: 100%;
+  }
+  .badge-icon {
+    flex: 0 0 auto; width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .badge-icon svg { width: 22px; height: 22px; }
+  .badge-text { text-align: left; }
+  .badge-title { display: block; font-size: 21px; font-weight: 700; line-height: 1.25; }
+  .badge-sub { display: block; font-family: 'Cousine', monospace; font-size: 11.5px; opacity: 0.75; margin-top: 3px; letter-spacing: 0.02em; }
+
+  .badge.risk-clean, .badge.risk-low { background: var(--safe-bg); border-color: var(--safe-line); color: var(--safe); }
+  .badge.risk-medium { background: var(--caution-bg); border-color: var(--caution-line); color: var(--caution); }
+  .badge.risk-high { background: var(--danger-bg); border-color: var(--danger-line); color: var(--danger); }
+
+  .reassure {
+    text-align: center; font-size: 16px; line-height: 1.6; color: #3a4152;
+    max-width: 480px; margin: 0 auto 30px;
+  }
+
+  .evidence-item { border-left: 3px solid var(--blue); padding-left: 16px; margin-bottom: 20px; }
+  .evidence-item .cat { font-weight: 700; color: var(--navy); font-size: 15.5px; margin: 0 0 6px; }
+  .evidence-item ul { margin: 0; padding-left: 18px; }
+  .evidence-item li { font-family: 'Cousine', monospace; font-size: 13px; line-height: 1.7; color: #2c3242; }
+
+  .context-box {
+    margin-top: 6px; margin-bottom: 24px; padding: 14px 18px; background: #f5f7fa;
+    border-radius: 10px; border-left: 3px solid #b9c2d1;
+  }
+  .context-box .cat { font-weight: 700; color: #5b6478; font-size: 13.5px; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.06em; font-family: 'Cousine', monospace; }
+  .context-box p { margin: 0 0 4px; font-size: 14.5px; line-height: 1.55; color: #4a5163; }
+
+  .ioc-box { border-left: 3px solid var(--caution); padding-left: 16px; margin-bottom: 20px; }
+  .ioc-box .cat { font-weight: 700; color: var(--caution); font-size: 15.5px; margin: 0 0 6px; }
+  .ioc-box ul { margin: 0; padding-left: 18px; }
+  .ioc-box li { font-family: 'Cousine', monospace; font-size: 13px; line-height: 1.7; color: #2c3242; }
+
+  .guidance { margin-top: 26px; padding: 18px 22px; background: var(--pale-blue); border-radius: 12px; border-left: 4px solid var(--navy); }
+  .guidance .cat { font-weight: 700; color: var(--navy); font-size: 16px; margin: 0 0 8px; }
+  .guidance p { margin: 0; font-size: 15.5px; line-height: 1.65; color: #1a2030; }
+
+  .error-box { text-align: center; padding: 18px; background: var(--danger-bg); border-radius: 12px; color: var(--danger); font-size: 15px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="letterhead">
+    <div class="badge-mark">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22496f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    </div>
+    <p class="wordmark">CSPS Notice Checker</p>
+    <p class="tagline">A calm second opinion before you act on a notice</p>
+  </div>
+  <hr class="rule thin">
+
+  <p class="section-label">Paste in the notice</p>
+  <label for="sender">Sender email</label>
+  <input type="text" id="sender" placeholder="e.g. admin@microsoft-support.com">
+  <label for="body">Notice text</label>
+  <textarea id="body" placeholder="Paste the text here…"></textarea>
+
+  <p class="examples">
+    <button type="button" onclick="loadExample('clean')">Clean Notice</button>
+    <button type="button" onclick="loadExample('permit')">Permit Scam</button>
+    <button type="button" onclick="loadExample('tax')">Tax Scam</button>
+    <button type="button" onclick="loadExample('tech')">Tech Support Scam</button>
+    <button type="button" onclick="loadExample('m365')">M365 BEC Scam (with BTC)</button>
+  </p>
+
+  <button class="run-btn" id="runBtn" onclick="runAnalysis()">Check this notice</button>
+  <div id="results"></div>
+</div>
+
+<script>
+const EXAMPLES = {
+  clean: { sender: "clerk@city.gov", body: "Your permit application #P-2026-1145 has been approved. No further action or payment is needed at this time." },
+  permit: { sender: "permits@govservices.net", body: "Case Number: ZN-88213. Your permit fee is overdue. Failure to pay immediately will result in delays. Wire payment within 24 hours." },
+  tax: { sender: "audit@usa.com", body: "IRS: Discrepancies found in your W-2 tax return. Pay the balance via prepaid debit card within 24 hours to avoid penalties." },
+  tech: { sender: "billing@geek-squad-support.com", body: "Geek Squad subscription auto-renewed for $399.99 (Invoice #INV-992). Call immediately to cancel or account will be charged." },
+  m365: { sender: "admin@microsoft-support.com", body: "Microsoft 365 Security Alert: Unusual sign-in. Password expiry requires immediate reset. Failure to comply will result in a frozen account. Send 0.5 BTC to 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa for verification." }
+};
+
+const ICONS = {
+  clean: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  low: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+  medium: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>',
+  high: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M12 3l9 9-9 9-9-9 9-9z"/></svg>'
+};
+
+const HEADLINES = {
+  CLEAN: "Looks safe",
+  LOW: "Mostly safe — one small note",
+  MEDIUM: "Worth a closer look",
+  HIGH: "Real warning signs here"
+};
+
+function loadExample(k) { 
+    document.getElementById("sender").value = EXAMPLES[k].sender; 
+    document.getElementById("body").value = EXAMPLES[k].body; 
+}
+
+async function runAnalysis() {
+  const sender = document.getElementById("sender").value || "unknown";
+  const body = document.getElementById("body").value;
+  const resDiv = document.getElementById("results");
+  const btn = document.getElementById("runBtn");
+
+  if (!body) { resDiv.innerHTML = "<p style='text-align:center;color:#5b6478;'>Please paste in the notice text first.</p>"; return; }
+
+  btn.innerText = "Checking…";
+  btn.disabled = true;
+
+  try {
+      const response = await fetch("http://127.0.0.1:8000/api/v1/scan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sender_email: sender, body_text: body, raw_headers: "" })
+      });
+
+      if (!response.ok) throw new Error("Backend API not running.");
+
+      const data = await response.json();
+      const result = data.analysis;
+      const riskKey = result.risk.toLowerCase();
+
+      let html = `<hr class="rule thin">`;
+
+      html += `<div class="verdict-wrap">
+        <div class="badge risk-${riskKey}">
+          <div class="badge-icon">${ICONS[riskKey] || ICONS.clean}</div>
+          <div class="badge-text">
+            <span class="badge-title">${HEADLINES[result.risk] || result.risk}</span>
+            <span class="badge-sub">${result.score} risk confidence</span>
+          </div>
+        </div>
+      </div>`;
+
+      html += `<p class="reassure">${result.guidance}</p>`;
+
+      if (result.breakdown.length) {
+          result.breakdown.forEach(([cat, reasons]) => {
+              html += `<div class="evidence-item"><p class="cat">${cat}</p><ul>${reasons.map(r => `<li>${r}</li>`).join('')}</ul></div>`;
+          });
+      }
+
+      if (result.context && result.context.length) {
+          html += `<div class="context-box"><p class="cat">Good to know</p>${result.context.map(c => `<p>${c}</p>`).join('')}</div>`;
+      }
+
+      if (result.iocs.crypto_wallets.length > 0) {
+          html += `<div class="ioc-box"><p class="cat">Payment details found in the message</p><ul>`;
+          result.iocs.crypto_wallets.forEach(wallet => {
+              html += `<li>${wallet.type} wallet: <strong>${wallet.address}</strong> — don't send anything here</li>`;
+          });
+          html += `</ul></div>`;
+      }
+
+      resDiv.innerHTML = html;
+
+  } catch (error) {
+      resDiv.innerHTML = `<hr class="rule thin"><div class="error-box"><b>Couldn't connect to the checker.</b><br>Make sure 'python api_server.py' is running in your terminal, then try again.</div>`;
+  } finally {
+      btn.innerText = "Check this notice";
+      btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
